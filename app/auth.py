@@ -9,7 +9,7 @@ class BlingAuth:
         self.gcs = gcs_handler
         self.base_url = "https://www.bling.com.br/Api/v3/oauth/token"
 
-    def get_valid_token(self):
+    def obter_token_valido(self):
         tokens = self.gcs.read_json(Config.TOKEN_PATH)
         if not tokens:
             raise Exception("FATAL: tokens.json não encontrado no Bucket.")

@@ -16,7 +16,7 @@ class GCSHandler:
             return None
         return json.loads(blob.download_as_text())
 
-    def write_json(self, blob_path, data):
+    def salvar_json(self, blob_path, data):
         blob = self.bucket.blob(blob_path)
         blob.upload_from_string(
             json.dumps(data, indent=4, ensure_ascii=False),
