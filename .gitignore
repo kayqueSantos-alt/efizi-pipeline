@@ -1,0 +1,7 @@
+# .gitignore - O que NÃO vai para o GitHub
+__pycache__/
+*.pyc
+.env
+.DS_Store
+venv/
+tokens.json
