@@ -3,7 +3,7 @@ from flask import Flask, jsonify
 from app.config import Config
 from app.gcs_handler import GCSHandler
 from app.auth import BlingAuth
-from app.extract import BlingExtractor
+from app.extract import ExtratorBling
 
 app = Flask(__name__)
 
@@ -12,9 +12,9 @@ def run_job():
     try:
         gcs = GCSHandler(Config.BUCKET_NAME)
         auth = BlingAuth(gcs)
-        extractor = BlingExtractor(auth, gcs)
+        extractor = ExtratorBling(auth, gcs)
         
-        count = extractor.run_daily_extraction()
+        count = extractor.executar_pipeline_diario()
         
         return jsonify({"status": "success", "processed": count}), 200
     except Exception as e:

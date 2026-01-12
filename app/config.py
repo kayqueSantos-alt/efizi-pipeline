@@ -11,4 +11,4 @@ class Config:
     TOKEN_PATH = "config/bling/tokens.json"
     
     # Os dados brutos ficam na pasta raw
-    RAW_BASE_PATH = "raw/bling"
+    CAMINHO_BASE_RAW = "raw/bling"
