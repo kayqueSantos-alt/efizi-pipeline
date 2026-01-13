@@ -4,106 +4,77 @@ import traceback
 import logging
 from typing import Tuple
 from flask import Flask, jsonify, Response
-from app.config import Config
-from app.gcs_handler import GCSHandler
-from app.bling.auth import BlingAuth
-from app.bling.extract import ExtratorBling
 
+from app.config import Config
+from app import bling, anymarket
 
 app = Flask(__name__)
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(levelname)s - %(message)s",
     stream=sys.stderr
 )
 logger = logging.getLogger(__name__)
 
 
-class PipelineOrchestrator:
-    """Orquestra execução do pipeline de extração Bling."""
-    
-    def __init__(self, bucket_name: str):
-        self.bucket_name = bucket_name
-        self._gcs_handler = None
-        self._auth_service = None
-        self._extractor = None
-    
-    def _inicializar_componentes(self) -> None:
-        """Inicializa handlers e serviços necessários."""
-        self._gcs_handler = GCSHandler(self.bucket_name)
-        self._auth_service = BlingAuth(self._gcs_handler)
-        self._extractor = ExtratorBling(self._auth_service, self._gcs_handler)
-    
-    def executar(self) -> int:
-        """
-        Executa pipeline completo de extração.
-        Retorna quantidade de registros processados.
-        """
-        logger.info("Iniciando execução do pipeline via scheduler")
-        
-        self._inicializar_componentes()
-        count = self._extractor.executar_pipeline_diario()
-        
-        logger.info(f"Pipeline finalizado com sucesso: {count} registros processados")
-        return count
+PIPELINES_DISPONIVEIS = {
+    "bling": bling.executar_pipeline,
+    "anymarket": anymarket.executar_pipeline
+}
 
 
-def criar_resposta_sucesso(count: int) -> Tuple[Response, int]:
-    """Cria response JSON de sucesso."""
-    return jsonify({
-        "status": "success",
-        "processed": count
-    }), 200
-
-
-def criar_resposta_erro(erro: Exception) -> Tuple[Response, int]:
-    """Cria response JSON de erro com logging completo."""
-    logger.error(f"Erro fatal durante execução do pipeline: {str(erro)}")
-    logger.error("Traceback completo:")
-    traceback.print_exc(file=sys.stderr)
-    
-    return jsonify({
-        "status": "error",
-        "message": str(erro)
-    }), 500
+def obter_pipelines_configurados() -> list[str]:
+    """
+    Lê pipelines a serem executados a partir da variável de ambiente.
+    Exemplo: PIPELINES=bling,anymarket
+    """
+    valor = os.getenv("PIPELINES", "bling")
+    return [p.strip().lower() for p in valor.split(",") if p.strip()]
 
 
 @app.route("/", methods=["GET"])
-def index() -> Tuple[Response, int]:
-    """Health check endpoint."""
-    return jsonify({
-        "message": "Pipeline Bling API Rodando"
-    }), 200
+def healthcheck() -> Tuple[Response, int]:
+    return jsonify({"status": "ok"}), 200
 
 
 @app.route("/run", methods=["POST"])
 def run_job() -> Tuple[Response, int]:
     """
-    Endpoint de execução do pipeline.
-    Acionado por Cloud Scheduler para processar dados diários.
+    Endpoint acionado pelo Cloud Scheduler.
+    Executa todos os pipelines configurados.
     """
     try:
-        orchestrator = PipelineOrchestrator(Config.BUCKET_NAME)
-        count = orchestrator.executar()
-        return criar_resposta_sucesso(count)
-        
+        pipelines = obter_pipelines_configurados()
+
+        total_processado = {}
+        logger.info(f"Pipelines configurados para execução: {pipelines}")
+
+        for nome in pipelines:
+            if nome not in PIPELINES_DISPONIVEIS:
+                logger.warning(f"Pipeline ignorado (não suportado): {nome}")
+                continue
+
+            logger.info(f"Iniciando pipeline: {nome}")
+            count = PIPELINES_DISPONIVEIS[nome](Config.BUCKET_NAME)
+            total_processado[nome] = count
+            logger.info(f"Pipeline {nome} finalizado: {count}")
+
+        return jsonify({
+            "status": "success",
+            "pipelines": total_processado
+        }), 200
+
     except Exception as erro:
-        return criar_resposta_erro(erro)
+        logger.error(str(erro))
+        traceback.print_exc(file=sys.stderr)
 
-
-def obter_porta_servidor() -> int:
-    """Obtém porta do servidor a partir de variável de ambiente."""
-    porta_padrao = 8080
-    return int(os.environ.get("PORT", porta_padrao))
+        return jsonify({
+            "status": "error",
+            "message": str(erro)
+        }), 500
 
 
 if __name__ == "__main__":
-    porta = obter_porta_servidor()
-    logger.info(f"Iniciando servidor Flask na porta {porta}")
-    
-    app.run(
-        host="0.0.0.0",
-        port=porta,
-        debug=False
-    )
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
