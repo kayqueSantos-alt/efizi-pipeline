@@ -4,7 +4,7 @@ from app.config import Config
 from app.gcs_handler import logger
 
 class AnymarketAuth:
-    def __init__(self):
+    def __init__(self,gcs_handler):
         self.token = Config.ANYMARKET_TOKEN
 
     def obter_cabecalhos(self) -> Dict[str, str]:
