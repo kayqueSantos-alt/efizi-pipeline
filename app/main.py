@@ -7,7 +7,11 @@ from app.extract import ExtratorBling
 
 app = Flask(__name__)
 
-@app.route("/", methods=["POST"])
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({"message": "Pipeline Bling API Rodando"}), 200
+
+@app.route("/run", methods=["POST"])
 def run_job():
     try:
         gcs = GCSHandler(Config.BUCKET_NAME)
