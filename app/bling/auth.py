@@ -33,7 +33,7 @@ class BlingAuth:
         if resp.status_code == 200:
             new_tokens = resp.json()
             new_tokens['created_at'] = time.time()
-            self.gcs.write_json(Config.TOKEN_PATH, new_tokens)
+            self.gcs.salvar_json(Config.TOKEN_PATH, new_tokens)
             return new_tokens['access_token']
         else:
             raise Exception(f"Erro Auth: {resp.text}")
