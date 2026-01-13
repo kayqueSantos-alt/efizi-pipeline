@@ -5,8 +5,8 @@ import logging
 from typing import Tuple
 from flask import Flask, jsonify, Response
 
-from app.config import Config
-from app import bling, anymarket
+import config as Config
+import bling, anymarket
 
 app = Flask(__name__)
 
