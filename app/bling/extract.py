@@ -71,64 +71,63 @@ class ExtratorBling:
         payload = resposta.json()
         return payload.get('data', [])
     
-    def _buscar_todas_paginas(
-        self, 
-        endpoint: str, 
-        parametros: Dict[str, Any]
-    ) -> List[Dict]:
+    def _buscar_todas_paginas(self, endpoint: str, parametros: Dict[str, Any], delay_segundos: float = 0.5) -> List[Dict]:
         """
-        Motor genérico de extração paginada.
-        Gerencia paginação, rate limiting e renovação de token automaticamente.
-        Funciona para qualquer endpoint da API Bling v3.
+        MÉTODO MOTOR ATUALIZADO:
+        Agora aceita 'delay_segundos' para controlar a velocidade.
         """
         pagina = 1
         dados_coletados = []
-        url = self._construir_url(endpoint)
+        url = f"{self.URL_BASE}/{endpoint}"
+        
+        # Headers iniciais
         cabecalhos = self._obter_cabecalhos()
-        
-        logger.info(f"Iniciando extração: {endpoint} | Parâmetros: {parametros}")
-        
+
+        logger.info(f"Iniciando extração: {endpoint} | Delay: {delay_segundos}s")
+
         while True:
-            parametros_requisicao = {
-                **parametros,
-                'pagina': pagina,
-                'limite': self.LIMITE_POR_PAGINA
-            }
-            
+            parametros['pagina'] = pagina
+            parametros['limite'] = 100 
+
             try:
-                resposta = requests.get(
-                    url, 
-                    headers=cabecalhos, 
-                    params=parametros_requisicao
-                )
-                
-                acao = self._tratar_resposta_erro(resposta, endpoint)
-                
-                if acao == 'retry':
+                # Adicionei timeout=30 para não travar se a rede cair
+                resposta = requests.get(url, headers=cabecalhos, params=parametros, timeout=30)
+
+                # --- MUDANÇA CRÍTICA AQUI (TRATAMENTO DE 429) ---
+                if resposta.status_code == 429:
+                    logger.warning("Rate limit (429) atingido. O Bling pediu para parar.")
+                    logger.warning("Aguardando 15 segundos para esfriar...")
+                    time.sleep(15) # Aumentado de 3 para 15 segundos
                     continue
-                elif acao == 'renovar_token':
+                
+                # Tratamento de Token (401)
+                if resposta.status_code == 401:
+                    logger.warning("Token expirou. Renovando...")
                     cabecalhos = self._obter_cabecalhos()
                     continue
-                elif acao == 'parar':
+
+                if resposta.status_code != 200:
+                    logger.error(f"Erro API {endpoint}: {resposta.status_code} - {resposta.text}")
                     break
-                
-                itens = self._extrair_dados_resposta(resposta)
-                
+
+                payload = resposta.json()
+                itens = payload.get('data', [])
+
                 if not itens:
-                    logger.info(f"Extração finalizada em {endpoint}. Total: {len(dados_coletados)} registros")
                     break
-                
+
                 dados_coletados.extend(itens)
-                logger.debug(f"Página {pagina} de {endpoint}: {len(itens)} itens coletados")
+                logger.info(f"Página {pagina} baixada: {len(itens)} itens.")
                 
                 pagina += 1
-                time.sleep(self.DELAY_ENTRE_REQUISICOES)
                 
-            except requests.RequestException as e:
-                logger.error(f"Erro de rede em {endpoint}: {e}")
-                break
+                # --- MUDANÇA AQUI (USA O DELAY CUSTOMIZADO) ---
+                time.sleep(delay_segundos) 
+
             except Exception as e:
-                logger.error(f"Erro crítico em {endpoint}: {e}")
+                logger.error(f"Erro crítico: {e}")
+                # Em caso de erro de conexão, espera um pouco antes de quebrar ou tentar de novo
+                time.sleep(5)
                 break
         
         return dados_coletados
@@ -170,7 +169,7 @@ class ExtratorBling:
             "dataFinal": self.data_alvo
         }
         
-        dados = self._buscar_todas_paginas(endpoint, parametros)  # 1. Busca
+        dados = self._buscar_todas_paginas(endpoint, parametros,delay_segundos=1.5 )  # 1. Busca
         self._salvar(dados, "nfe")  # 2. AQUI! Salva
         
         return len(dados)  # 3. Retorna
