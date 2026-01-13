@@ -7,7 +7,7 @@ from app.extract import ExtratorBling
 
 app = Flask(__name__)
 
-@app.route("/run", methods=["POST"])
+@app.route("/", methods=["POST"])
 def run_job():
     try:
         gcs = GCSHandler(Config.BUCKET_NAME)
