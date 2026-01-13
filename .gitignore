@@ -5,3 +5,7 @@ __pycache__/
 .DS_Store
 venv/
 tokens.json
+teste_local.py
+gerar_token.py
+teste_isolado.py
+.gitignore
