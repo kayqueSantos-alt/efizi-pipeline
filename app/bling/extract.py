@@ -178,7 +178,7 @@ class ExtratorBling:
         # Mantendo o delay maior para não dar Rate Limit
         dados = self._buscar_todas_paginas(endpoint, parametros, delay_segundos=1.5)
         
-        self._salvar_no_gcs(dados, "nfe")
+        self._salvar(dados, "nfe")
         return len(dados)
     
     def executar_pipeline_diario(self) -> int:
