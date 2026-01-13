@@ -93,7 +93,7 @@ class ExtratorBling:
 
     def extrair_vendas(self):
         """Configuração para Pedidos de Venda"""
-        endpoint = "vendas"
+        endpoint = "pedidos/vendas"
         
         # CORREÇÃO DO ERRO: 
         # Na V3 usa-se 'dataInicial' e não 'dataInclusaoInicial'
