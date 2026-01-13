@@ -164,15 +164,22 @@ class ExtratorBling:
     
     def extrair_nfe(self) -> int:
         endpoint = "nfe"
+        # AJUSTE 1: NFe precisa de Data + Hora
+        data_inicio_completa = f"{self.data_alvo} 00:00:00"
+        data_fim_completa = f"{self.data_alvo} 23:59:59"
+
+        # AJUSTE 2: Nomes de parâmetros específicos para NFe
         parametros = {
-            "dataInicial": self.data_alvo,
-            "dataFinal": self.data_alvo
+            "dataEmissaoInicial": data_inicio_completa,
+            "dataEmissaoFinal": data_fim_completa,
+            "tipo": 1  # Opcional: 1=Saída (Vendas)
         }
         
-        dados = self._buscar_todas_paginas(endpoint, parametros,delay_segundos=1.5 )  # 1. Busca
-        self._salvar(dados, "nfe")  # 2. AQUI! Salva
+        # Mantendo o delay maior para não dar Rate Limit
+        dados = self._buscar_todas_paginas(endpoint, parametros, delay_segundos=1.5)
         
-        return len(dados)  # 3. Retorna
+        self._salvar_no_gcs(dados, "nfe")
+        return len(dados)
     
     def executar_pipeline_diario(self) -> int:
         """Executa pipeline completo de extração diária."""
