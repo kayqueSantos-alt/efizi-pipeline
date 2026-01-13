@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 
 from app.config import Config
 from app.gcs_handler import logger
-from .auth import AutenticacaoAnymarket
+from .auth import AnymarketAuth
 
 class ExtratorAnymarket:
     URL_BASE = "https://api.anymarket.com.br/v2"
