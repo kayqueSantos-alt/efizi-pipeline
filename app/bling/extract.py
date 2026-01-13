@@ -164,31 +164,44 @@ class ExtratorBling:
         return len(dados)
     
     def extrair_nfe(self) -> int:
-        """
-        Extrai nfe do dia alvo.
-        Usa filtro por data inicial/final conforme API Bling v3.
-        """
         endpoint = "nfe"
         parametros = {
             "dataInicial": self.data_alvo,
             "dataFinal": self.data_alvo
         }
         
-        dados = self._buscar_todas_paginas(endpoint, parametros)
-        self._salvar(dados, "nfe")
+        dados = self._buscar_todas_paginas(endpoint, parametros)  # 1. Busca
+        self._salvar(dados, "nfe")  # 2. AQUI! Salva
         
-        return len(dados)
+        return len(dados)  # 3. Retorna
     
-    def executar_pipeline_diario(self) -> None:
+    def executar_pipeline_diario(self) -> int:
         """Executa pipeline completo de extração diária."""
         logger.info(f"=== Pipeline Iniciado: {self.data_alvo} ===")
         
-        total_vendas = self.extrair_vendas()
-        total_nfe = self.extrair_nfe()
-        logger.info(f"NFe extraídas: {total_nfe}")
-        logger.info(f"Vendas extraídas: {total_vendas}")
+        total_vendas = 0
+        total_nfe = 0
+        
+        # Extração de Vendas com proteção
+        try:
+            logger.info("[INICIO] Extraindo vendas...")
+            total_vendas = self.extrair_vendas()
+            logger.info(f"[SUCESSO] Vendas extraídas: {total_vendas}")
+        except Exception as e:
+            logger.error(f"[ERRO] Falha ao extrair vendas: {e}")
+        
+        # Extração de NFe com proteção
+        try:
+            logger.info("[INICIO] Extraindo NFe...")
+            total_nfe = self.extrair_nfe()
+            logger.info(f"[SUCESSO] NFe extraídas: {total_nfe}")
+        except Exception as e:
+            logger.error(f"[ERRO] Falha ao extrair NFe: {e}")
         
         # total_produtos = self.extrair_produtos()
         # logger.info(f"Produtos extraídos: {total_produtos}")
         
-        logger.info("=== Pipeline Finalizado ===")
+        total_processado = total_vendas + total_nfe
+        logger.info(f"=== Pipeline Finalizado: {total_processado} registros totais ===")
+        
+        return total_processado
