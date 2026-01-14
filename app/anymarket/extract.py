@@ -70,6 +70,18 @@ class ExtratorAnymarket:
                 break
                 
         return dados_coletados
+    
+    def _normalizar_chaves(self, obj):
+        """Remove hífens das chaves, substituindo por underscore."""
+        if isinstance(obj, dict):
+            return {
+                chave.replace('-', '_'): self._normalizar_chaves(valor)
+                for chave, valor in obj.items()
+            }
+        elif isinstance(obj, list):
+            return [self._normalizar_chaves(item) for item in obj]
+        else:
+            return obj
 
     def _salvar_no_gcs(self, dados: List[Dict], pasta: str) -> None:
         """Persiste dados no GCS com particionamento por data em formato NDJSON."""
@@ -86,12 +98,15 @@ class ExtratorAnymarket:
         )
         
         try:
+            # ✅ Normaliza os dados ANTES de converter para JSON
+            dados_normalizados = [self._normalizar_chaves(registro) for registro in dados]
+            
             conteudo_ndjson = '\n'.join(
                 json.dumps(registro, ensure_ascii=False) 
-                for registro in dados
+                for registro in dados_normalizados
             )
             
-            blob = self.bucket.blob(caminho)  # ✅ Usa self.bucket
+            blob = self.bucket.blob(caminho)
             blob.metadata = {'num_registros': str(len(dados))}
             
             blob.upload_from_string(
