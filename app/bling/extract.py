@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from app.config import Config
 from app.gcs_handler import logger
+import json
 
 
 class ExtratorBling:
@@ -133,18 +134,44 @@ class ExtratorBling:
         return dados_coletados
     
     def _salvar(self, dados: List[Dict], pasta: str) -> None:
-        """Persiste dados no GCS com particionamento por data."""
+        """Persiste dados no GCS com particionamento por data em formato NDJSON."""
         if not dados:
             logger.info(f"Nenhum dado para salvar em {pasta}")
             return
+        
+        # Validação básica
+        if not all(isinstance(d, dict) for d in dados):
+            raise ValueError("Todos os itens devem ser dicionários")
         
         caminho = (
             f"{Config.CAMINHO_BASE_RAW}/{pasta}/"
             f"data_ref={self.data_alvo}/data.json"
         )
         
-        self.gcs.salvar_json(caminho, dados)
-        logger.info(f"Salvos {len(dados)} registros em {caminho}")
+        try:
+            # Mais eficiente em memória
+            conteudo_ndjson = '\n'.join(
+                json.dumps(registro, ensure_ascii=False) 
+                for registro in dados
+            )
+            
+            blob = self.bucket.blob(caminho)
+            
+            # Metadados opcionais
+            blob.metadata = {'num_registros': str(len(dados))}
+            
+            blob.upload_from_string(
+                conteudo_ndjson,
+                content_type='application/x-ndjson; charset=utf-8'
+            )
+            
+            logger.info(
+                f"✓ Salvos {len(dados)} registros em gs://{self.bucket.name}/{caminho}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Erro ao salvar no GCS ({caminho}): {e}")
+            raise
     
     def extrair_vendas(self) -> int:
         """

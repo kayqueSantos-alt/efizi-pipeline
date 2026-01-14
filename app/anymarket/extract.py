@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 from app.config import Config
 from app.gcs_handler import logger
 from .auth import AnymarketAuth
+import json
 
 class ExtratorAnymarket:
     URL_BASE = "https://api.anymarket.com.br/v2"
@@ -65,16 +66,45 @@ class ExtratorAnymarket:
                 
         return dados_coletados
 
-    def _salvar_no_gcs(self, dados: List[Dict], nome_pasta: str):
+    def _salvar_no_gcs(self, dados: List[Dict], pasta: str) -> None:
+        """Persiste dados no GCS com particionamento por data em formato NDJSON."""
         if not dados:
-            logger.info("Sem dados para salvar.")
+            logger.info(f"Nenhum dado para salvar em {pasta}")
             return
-            
-        # Usa o caminho base configurado para AnyMarket
-        caminho = f"{Config.CAMINHO_BASE_RAW_ANYMARKET}/{nome_pasta}/data_ref={self.data_alvo}/data.json"
         
-        logger.info(f"Salvando {len(dados)} registros em: {caminho}")
-        self.gcs.salvar_json(caminho, dados)
+        # Validação básica
+        if not all(isinstance(d, dict) for d in dados):
+            raise ValueError("Todos os itens devem ser dicionários")
+        
+        caminho = (
+            f"{Config.CAMINHO_BASE_RAW_ANYMARKET}/{pasta}/"
+            f"data_ref={self.data_alvo}/data.json"
+        )
+        
+        try:
+            # Mais eficiente em memória
+            conteudo_ndjson = '\n'.join(
+                json.dumps(registro, ensure_ascii=False) 
+                for registro in dados
+            )
+            
+            blob = self.bucket.blob(caminho)
+            
+            # Metadados opcionais
+            blob.metadata = {'num_registros': str(len(dados))}
+            
+            blob.upload_from_string(
+                conteudo_ndjson,
+                content_type='application/x-ndjson; charset=utf-8'
+            )
+            
+            logger.info(
+                f"✓ Salvos {len(dados)} registros em gs://{self.bucket.name}/{caminho}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Erro ao salvar no GCS ({caminho}): {e}")
+            raise
 
     # ---------------------------------------------------------
     # MÉTODOS DE NEGÓCIO
