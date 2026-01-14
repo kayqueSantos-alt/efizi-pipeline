@@ -11,12 +11,17 @@ import json
 
 class ExtratorAnymarket:
     URL_BASE = "https://api.anymarket.com.br/v2"
+    
 
     def __init__(self, servico_autenticacao, manipulador_gcs):
         self.auth = servico_autenticacao
         self.gcs = manipulador_gcs
         # Data D-1 (Ontem)
         self.data_alvo = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+        from google.cloud import storage
+        client = storage.Client()
+        self.bucket = client.bucket(Config.BUCKET_NAME)
 
     def _buscar_todas_paginas(self, endpoint: str, parametros: Dict[str, Any]) -> List[Dict]:
         """
@@ -72,7 +77,6 @@ class ExtratorAnymarket:
             logger.info(f"Nenhum dado para salvar em {pasta}")
             return
         
-        # Validação básica
         if not all(isinstance(d, dict) for d in dados):
             raise ValueError("Todos os itens devem ser dicionários")
         
@@ -82,15 +86,12 @@ class ExtratorAnymarket:
         )
         
         try:
-            # Mais eficiente em memória
             conteudo_ndjson = '\n'.join(
                 json.dumps(registro, ensure_ascii=False) 
                 for registro in dados
             )
             
-            blob = self.bucket.blob(caminho)
-            
-            # Metadados opcionais
+            blob = self.bucket.blob(caminho)  # ✅ Usa self.bucket
             blob.metadata = {'num_registros': str(len(dados))}
             
             blob.upload_from_string(
@@ -99,7 +100,7 @@ class ExtratorAnymarket:
             )
             
             logger.info(
-                f"✓ Salvos {len(dados)} registros em gs://{self.BUCKET_NAME}/{caminho}"
+                f"✓ Salvos {len(dados)} registros em gs://{Config.BUCKET_NAME}/{caminho}"
             )
             
         except Exception as e:
