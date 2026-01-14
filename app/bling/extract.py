@@ -22,6 +22,10 @@ class ExtratorBling:
         self.auth = servico_autenticacao
         self.gcs = manipulador_gcs
         self.data_alvo = self._calcular_data_alvo()
+
+        from google.cloud import storage
+        client = storage.Client()
+        self.bucket = client.bucket(Config.BUCKET_NAME)
     
     @staticmethod
     def _calcular_data_alvo() -> str:
@@ -139,7 +143,6 @@ class ExtratorBling:
             logger.info(f"Nenhum dado para salvar em {pasta}")
             return
         
-        # Validação básica
         if not all(isinstance(d, dict) for d in dados):
             raise ValueError("Todos os itens devem ser dicionários")
         
@@ -149,15 +152,12 @@ class ExtratorBling:
         )
         
         try:
-            # Mais eficiente em memória
             conteudo_ndjson = '\n'.join(
                 json.dumps(registro, ensure_ascii=False) 
                 for registro in dados
             )
             
-            blob = self.bucket.blob(caminho)
-            
-            # Metadados opcionais
+            blob = self.bucket.blob(caminho)  # ✅ Usa self.bucket
             blob.metadata = {'num_registros': str(len(dados))}
             
             blob.upload_from_string(
@@ -166,13 +166,13 @@ class ExtratorBling:
             )
             
             logger.info(
-                f"✓ Salvos {len(dados)} registros em gs://{self.BUCKET_NAME}/{caminho}"
+                f"✓ Salvos {len(dados)} registros em gs://{Config.BUCKET_NAME}/{caminho}"
             )
             
         except Exception as e:
             logger.error(f"Erro ao salvar no GCS ({caminho}): {e}")
             raise
-    
+        
     def extrair_vendas(self) -> int:
         """
         Extrai pedidos de venda do dia alvo.
