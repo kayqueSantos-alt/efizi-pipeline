@@ -166,7 +166,7 @@ class ExtratorBling:
             )
             
             logger.info(
-                f"✓ Salvos {len(dados)} registros em gs://{self.bucket.name}/{caminho}"
+                f"✓ Salvos {len(dados)} registros em gs://{self.BUCKET_NAME}/{caminho}"
             )
             
         except Exception as e:
